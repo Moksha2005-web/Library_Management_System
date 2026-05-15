@@ -1,4 +1,9 @@
-```groovy
+
+---
+
+# Your file should START directly like this:
+
+```groovy id="jlwm1c"
 pipeline {
     agent any
 
@@ -47,10 +52,7 @@ pipeline {
                 echo '🚀 Deploying application container...'
 
                 powershell '''
-                docker run -d `
-                  --name $env:CONTAINER_NAME `
-                  -p 5000:5000 `
-                  $env:IMAGE_NAME
+                docker run -d --name $env:CONTAINER_NAME -p 5000:5000 $env:IMAGE_NAME
                 '''
             }
         }
@@ -82,4 +84,3 @@ pipeline {
         }
     }
 }
-```
