@@ -1,17 +1,15 @@
 // ============================================================
-//  Library Management System – Jenkins CI/CD Pipeline
-//  Stages: Checkout → Install → Lint → Test → Build → Push → Deploy
+//  Library Management System - Jenkins CI/CD Pipeline
+//  Windows-compatible version (uses bat instead of sh)
 // ============================================================
  
 pipeline {
     agent any
  
     environment {
-        APP_NAME        = 'library-ms'
-        DOCKER_IMAGE    = "library-ms:${BUILD_NUMBER}"
-        DOCKER_LATEST   = 'library-ms:latest'
-        // Set DOCKER_HUB_CREDENTIALS in Jenkins Credentials store
-        // DOCKER_HUB_USER = credentials('docker-hub-user')
+        APP_NAME      = 'library-ms'
+        DOCKER_IMAGE  = "library-ms:${BUILD_NUMBER}"
+        DOCKER_LATEST = 'library-ms:latest'
     }
  
     options {
@@ -23,179 +21,130 @@ pipeline {
  
     stages {
  
-        // ── 1. Checkout ───────────────────────────────────────────────────────
+        // 1. Checkout
         stage('Checkout') {
             steps {
-                echo '📥  Checking out source code...'
+                echo 'Checking out source code...'
                 checkout scm
-                sh 'git log --oneline -5'
+                bat 'git log --oneline -5'
             }
         }
  
-        // ── 2. Set up Python environment ──────────────────────────────────────
+        // 2. Setup Python Environment
         stage('Setup Environment') {
             steps {
-                echo '🐍  Setting up Python virtual environment...'
-                sh '''
-                    python3 -m venv venv
-                    . venv/bin/activate
-                    pip install --upgrade pip
+                echo 'Setting up Python virtual environment...'
+                bat '''
+                    python -m venv venv
+                    call venv\\Scripts\\activate.bat
+                    python -m pip install --upgrade pip
                     pip install -r requirements.txt
                 '''
             }
         }
  
-        // ── 3. Lint ───────────────────────────────────────────────────────────
+        // 3. Lint
         stage('Lint') {
             steps {
-                echo '🔍  Running code linting...'
-                sh '''
-                    . venv/bin/activate
+                echo 'Running flake8 linting...'
+                bat '''
+                    call venv\\Scripts\\activate.bat
                     pip install flake8 --quiet
-                    flake8 app/ run.py --max-line-length=120 \
-                        --exclude=venv,__pycache__ \
-                        --statistics || true
+                    python -m flake8 app/ run.py --max-line-length=120 --exclude=venv,__pycache__ --statistics
                 '''
             }
         }
  
-        // ── 4. Unit Tests ─────────────────────────────────────────────────────
+        // 4. Unit Tests
         stage('Unit Tests') {
             steps {
-                echo '🧪  Running unit tests with pytest...'
-                sh '''
-                    . venv/bin/activate
-                    pytest tests/ -v \
-                        --tb=short \
-                        --junitxml=reports/test-results.xml \
-                        --html=reports/test-report.html \
-                        --self-contained-html || true
+                echo 'Running unit tests with pytest...'
+                bat '''
+                    if not exist reports mkdir reports
+                    call venv\\Scripts\\activate.bat
+                    set PYTHONPATH=%CD%
+                    pytest tests/ -v --tb=short --junitxml=reports/test-results.xml
                 '''
             }
             post {
                 always {
-                    // Publish JUnit test results in Jenkins
                     junit allowEmptyResults: true,
                           testResults: 'reports/test-results.xml'
                 }
             }
         }
  
-        // ── 5. Docker Build ───────────────────────────────────────────────────
+        // 5. Docker Build
         stage('Docker Build') {
             steps {
-                echo "🐳  Building Docker image: ${DOCKER_IMAGE}"
-                sh """
-                    docker build \
-                        --target runtime \
-                        --tag ${DOCKER_IMAGE} \
-                        --tag ${DOCKER_LATEST} \
-                        --label "build.number=${BUILD_NUMBER}" \
-                        --label "build.url=${BUILD_URL}" \
+                echo "Building Docker image: ${DOCKER_IMAGE}"
+                bat """
+                    docker build ^
+                        --tag ${DOCKER_IMAGE} ^
+                        --tag ${DOCKER_LATEST} ^
+                        --label build.number=${BUILD_NUMBER} ^
                         .
                 """
             }
         }
  
-        // ── 6. Docker Image Verification ──────────────────────────────────────
+        // 6. Image Verification
         stage('Image Verification') {
             steps {
-                echo '✅  Verifying Docker image health...'
-                sh """
-                    # Start container in background
-                    docker run -d --name test-container-${BUILD_NUMBER} \
-                        -p 5001:5000 \
-                        ${DOCKER_IMAGE}
- 
-                    # Wait for container to start
-                    sleep 8
- 
-                    # Check health endpoint
-                    curl -f http://localhost:5001/health || \
-                        (docker logs test-container-${BUILD_NUMBER} && exit 1)
- 
-                    echo 'Health check passed!'
+                echo 'Verifying Docker image health...'
+                bat """
+                    docker run -d --name test-container-${BUILD_NUMBER} -p 5001:5000 ${DOCKER_IMAGE}
+                    timeout /t 10 /nobreak
+                    curl -f http://localhost:5001/health
+                    echo Health check passed!
                 """
             }
             post {
                 always {
-                    sh "docker stop test-container-${BUILD_NUMBER} || true"
-                    sh "docker rm  test-container-${BUILD_NUMBER} || true"
+                    bat """
+                        docker stop test-container-${BUILD_NUMBER} || exit /b 0
+                        docker rm   test-container-${BUILD_NUMBER} || exit /b 0
+                    """
                 }
             }
         }
  
-        // ── 7. Push to Registry (only on main branch) ─────────────────────────
+        // 7. Push to Registry (main branch only)
         stage('Push to Registry') {
-            when {
-                branch 'main'
-            }
+            when { branch 'main' }
             steps {
-                echo '📤  Pushing image to Docker Hub...'
-                // Uncomment and configure Docker Hub credentials in Jenkins:
-                // withCredentials([usernamePassword(
-                //     credentialsId: 'docker-hub-credentials',
-                //     usernameVariable: 'DOCKER_USER',
-                //     passwordVariable: 'DOCKER_PASS'
-                // )]) {
-                //     sh """
-                //         echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                //         docker tag ${DOCKER_IMAGE} $DOCKER_USER/${APP_NAME}:${BUILD_NUMBER}
-                //         docker tag ${DOCKER_IMAGE} $DOCKER_USER/${APP_NAME}:latest
-                //         docker push $DOCKER_USER/${APP_NAME}:${BUILD_NUMBER}
-                //         docker push $DOCKER_USER/${APP_NAME}:latest
-                //     """
-                // }
-                echo 'Skipping push (configure Docker Hub credentials to enable)'
+                echo 'Skipping push - configure Docker Hub credentials to enable'
             }
         }
  
-        // ── 8. Deploy ─────────────────────────────────────────────────────────
+        // 8. Deploy
         stage('Deploy') {
-            when {
-                branch 'main'
-            }
+            when { branch 'main' }
             steps {
-                echo '🚀  Deploying application with Docker Compose...'
-                sh '''
-                    # Stop existing containers gracefully
-                    docker-compose down --remove-orphans || true
- 
-                    # Deploy updated image
+                echo 'Deploying with Docker Compose...'
+                bat '''
+                    docker-compose down --remove-orphans || exit /b 0
                     docker-compose up -d app
- 
-                    # Wait and verify
-                    sleep 10
+                    timeout /t 10 /nobreak
                     docker-compose ps
-                    docker-compose logs --tail=20 app
                 '''
             }
         }
     }
  
-    // ── Post Actions ──────────────────────────────────────────────────────────
     post {
         always {
-            echo '🧹  Cleaning up workspace...'
-            sh 'rm -rf venv || true'
-            // Remove dangling images
-            sh 'docker image prune -f || true'
+            echo 'Cleaning up workspace...'
+            bat '''
+                if exist venv rmdir /s /q venv || exit /b 0
+                docker image prune -f || exit /b 0
+            '''
         }
         success {
-            echo '✅  Pipeline completed SUCCESSFULLY!'
-            // emailext(
-            //     subject: "✅ Build #${BUILD_NUMBER} – ${APP_NAME} PASSED",
-            //     body: "Build ${BUILD_URL} succeeded.",
-            //     to: 'team@example.com'
-            // )
+            echo 'Pipeline completed SUCCESSFULLY!'
         }
         failure {
-            echo '❌  Pipeline FAILED!'
-            // emailext(
-            //     subject: "❌ Build #${BUILD_NUMBER} – ${APP_NAME} FAILED",
-            //     body: "Build ${BUILD_URL} failed.",
-            //     to: 'team@example.com'
-            // )
+            echo 'Pipeline FAILED!'
         }
     }
 }
