@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Dashboard – LibraryMS{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2>Dashboard</h2>
+  <p>Welcome to the Library Management System</p>
+</div>
+
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="label">Total Books</div>
+    <div class="value">{{ total_books }}</div>
+    <div class="icon-bg">📖</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Members</div>
+    <div class="value">{{ total_members }}</div>
+    <div class="icon-bg">👥</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Active Issues</div>
+    <div class="value">{{ active_issues }}</div>
+    <div class="icon-bg">🔄</div>
+  </div>
+  <div class="stat-card" style="--accent:#c0392b">
+    <div class="label">Overdue</div>
+    <div class="value" style="color:#e74c3c">{{ overdue }}</div>
+    <div class="icon-bg">⚠️</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="section-header">
+    <h3 style="font-family:'Playfair Display',serif;font-size:1.1rem;color:var(--accent)">Recent Issues</h3>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Book</th><th>Member</th><th>Issue Date</th><th>Due Date</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for issue in recent_issues %}
+        <tr>
+          <td>{{ issue.book.title }}</td>
+          <td>{{ issue.member.name }}</td>
+          <td>{{ issue.issue_date.strftime('%d %b %Y') }}</td>
+          <td>{{ issue.due_date.strftime('%d %b %Y') }}</td>
+          <td>
+            {% if issue.status == 'returned' %}
+              <span class="badge badge-success">Returned</span>
+            {% elif issue.due_date < now %}
+              <span class="badge badge-danger">Overdue</span>
+            {% else %}
+              <span class="badge badge-info">Issued</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px">No recent transactions</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

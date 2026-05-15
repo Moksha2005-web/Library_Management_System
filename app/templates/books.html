@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Books – LibraryMS{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2>Books</h2>
+  <p>Manage the library book catalogue</p>
+</div>
+
+<div class="card">
+  <div class="section-header">
+    <span style="color:var(--muted);font-size:.85rem">{{ books|length }} books in catalogue</span>
+    <button class="btn btn-primary" onclick="openModal('addBookModal')">＋ Add Book</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Title</th><th>Author</th><th>ISBN</th><th>Genre</th><th>Qty</th><th>Available</th><th>Action</th></tr>
+      </thead>
+      <tbody>
+        {% for book in books %}
+        <tr>
+          <td><strong>{{ book.title }}</strong></td>
+          <td>{{ book.author }}</td>
+          <td style="font-family:monospace;font-size:.8rem;color:var(--muted)">{{ book.isbn }}</td>
+          <td><span class="badge badge-info">{{ book.genre or '–' }}</span></td>
+          <td>{{ book.quantity }}</td>
+          <td>
+            {% if book.available > 0 %}
+              <span class="badge badge-success">{{ book.available }}</span>
+            {% else %}
+              <span class="badge badge-danger">0</span>
+            {% endif %}
+          </td>
+          <td>
+            <form method="POST" action="/books/delete/{{ book.id }}" onsubmit="return confirm('Delete this book?')">
+              <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:40px">No books added yet</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add Book Modal -->
+<div class="modal-overlay" id="addBookModal">
+  <div class="modal">
+    <h3>Add New Book</h3>
+    <form method="POST" action="/books/add">
+      <div class="form-grid">
+        <div class="form-group" style="grid-column:span 2">
+          <label>Title *</label>
+          <input type="text" name="title" required placeholder="e.g. Clean Code"/>
+        </div>
+        <div class="form-group">
+          <label>Author *</label>
+          <input type="text" name="author" required placeholder="e.g. Robert C. Martin"/>
+        </div>
+        <div class="form-group">
+          <label>ISBN *</label>
+          <input type="text" name="isbn" required placeholder="e.g. 978-0132350884"/>
+        </div>
+        <div class="form-group">
+          <label>Genre</label>
+          <input type="text" name="genre" placeholder="e.g. Technology"/>
+        </div>
+        <div class="form-group">
+          <label>Quantity</label>
+          <input type="number" name="quantity" value="1" min="1"/>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" style="background:var(--surface2)" onclick="closeModal('addBookModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add Book</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

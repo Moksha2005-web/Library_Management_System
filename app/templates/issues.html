@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Issues – LibraryMS{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2>Issue / Return</h2>
+  <p>Track book lending and returns</p>
+</div>
+
+<div class="card">
+  <div class="section-header">
+    <span style="color:var(--muted);font-size:.85rem">{{ issues|length }} total transactions</span>
+    <button class="btn btn-primary" onclick="openModal('issueModal')">＋ Issue Book</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>#</th><th>Book</th><th>Member</th><th>Issued</th><th>Due</th><th>Returned</th><th>Status</th><th>Action</th></tr>
+      </thead>
+      <tbody>
+        {% for issue in issues %}
+        <tr>
+          <td style="color:var(--muted);font-size:.8rem">{{ loop.index }}</td>
+          <td><strong>{{ issue.book.title }}</strong></td>
+          <td>{{ issue.member.name }}</td>
+          <td>{{ issue.issue_date.strftime('%d %b %Y') }}</td>
+          <td>{{ issue.due_date.strftime('%d %b %Y') }}</td>
+          <td>{{ issue.return_date.strftime('%d %b %Y') if issue.return_date else '–' }}</td>
+          <td>
+            {% if issue.status == 'returned' %}
+              <span class="badge badge-success">Returned</span>
+            {% else %}
+              <span class="badge badge-info">Issued</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if issue.status == 'issued' %}
+            <form method="POST" action="/issues/return/{{ issue.id }}">
+              <button class="btn btn-primary btn-sm" type="submit">Return</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:40px">No transactions recorded</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Issue Modal -->
+<div class="modal-overlay" id="issueModal">
+  <div class="modal">
+    <h3>Issue a Book</h3>
+    <form method="POST" action="/issues/add">
+      <div class="form-grid">
+        <div class="form-group" style="grid-column:span 2">
+          <label>Select Book *</label>
+          <select name="book_id" required>
+            <option value="">-- Choose a book --</option>
+            {% for b in books %}
+            <option value="{{ b.id }}">{{ b.title }} ({{ b.available }} available)</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group" style="grid-column:span 2">
+          <label>Select Member *</label>
+          <select name="member_id" required>
+            <option value="">-- Choose a member --</option>
+            {% for m in members %}
+            <option value="{{ m.id }}">{{ m.name }} ({{ m.member_id }})</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <p style="font-size:.8rem;color:var(--muted);margin-top:14px">Due date: 14 days from today</p>
+      <div class="modal-actions">
+        <button type="button" class="btn" style="background:var(--surface2)" onclick="closeModal('issueModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Issue Book</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
