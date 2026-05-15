@@ -1,6 +1,6 @@
 // ============================================================
 //  Library Management System - Jenkins CI/CD Pipeline
-//  Windows-compatible version (uses bat instead of sh)
+//  Windows-compatible (bat commands + explicit Python path)
 // ============================================================
  
 pipeline {
@@ -10,6 +10,9 @@ pipeline {
         APP_NAME      = 'library-ms'
         DOCKER_IMAGE  = "library-ms:${BUILD_NUMBER}"
         DOCKER_LATEST = 'library-ms:latest'
+        // Update PYTHON_HOME to match your installation path
+        // Run 'where.exe python' in PowerShell to find yours
+        PYTHON_HOME   = 'C:\\Users\\rajan\\AppData\\Local\\Programs\\Python\\Python311'
     }
  
     options {
@@ -34,12 +37,14 @@ pipeline {
         stage('Setup Environment') {
             steps {
                 echo 'Setting up Python virtual environment...'
-                bat '''
+                bat """
+                    set PATH=%PYTHON_HOME%;%PYTHON_HOME%\\Scripts;%PATH%
+                    python --version
                     python -m venv venv
                     call venv\\Scripts\\activate.bat
                     python -m pip install --upgrade pip
                     pip install -r requirements.txt
-                '''
+                """
             }
         }
  
@@ -47,11 +52,12 @@ pipeline {
         stage('Lint') {
             steps {
                 echo 'Running flake8 linting...'
-                bat '''
+                bat """
+                    set PATH=%PYTHON_HOME%;%PYTHON_HOME%\\Scripts;%PATH%
                     call venv\\Scripts\\activate.bat
                     pip install flake8 --quiet
                     python -m flake8 app/ run.py --max-line-length=120 --exclude=venv,__pycache__ --statistics
-                '''
+                """
             }
         }
  
@@ -59,12 +65,13 @@ pipeline {
         stage('Unit Tests') {
             steps {
                 echo 'Running unit tests with pytest...'
-                bat '''
+                bat """
+                    set PATH=%PYTHON_HOME%;%PYTHON_HOME%\\Scripts;%PATH%
                     if not exist reports mkdir reports
                     call venv\\Scripts\\activate.bat
                     set PYTHONPATH=%CD%
                     pytest tests/ -v --tb=short --junitxml=reports/test-results.xml
-                '''
+                """
             }
             post {
                 always {
